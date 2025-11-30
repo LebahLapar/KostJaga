@@ -94,4 +94,4 @@ windows/CMakeCache.txt
 .env.development
 .env.production
 
-tests/widget_test.dart
+test/widget_test.dart
