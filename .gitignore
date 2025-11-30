@@ -94,4 +94,4 @@ windows/CMakeCache.txt
 .env.development
 .env.production
 
-# Existing gitignore content...
+tests/widget_test.dart
