@@ -10,6 +10,7 @@ import 'providers/kost_provider.dart';
 import 'providers/tenant_provider.dart';
 import 'providers/payment_provider.dart';
 import 'providers/complaint_provider.dart';
+import 'providers/tenant_auth_provider.dart';
 
 
 String get supabaseUrl {
@@ -76,6 +77,7 @@ class JagaKostApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TenantProvider()),
         ChangeNotifierProvider(create: (_) => PaymentProvider()),
         ChangeNotifierProvider(create: (_) => ComplaintProvider()),
+        ChangeNotifierProvider(create: (_) => TenantAuthProvider()),
       ],
       child: MaterialApp(
         title: 'JagaKost',

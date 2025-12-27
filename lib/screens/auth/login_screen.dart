@@ -160,6 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     );
                   },
                 ),
+                /*
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {
@@ -172,6 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                   child: const Text('Belum punya akun? Daftar'),
                 ),
+                */
               ],
             ),
           ),
