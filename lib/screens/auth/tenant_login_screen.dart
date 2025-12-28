@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/tenant_auth_provider.dart';
 import '../tenant_portal/tenant_home_screen.dart';
+import '../../utils/page_transitions.dart';
 
 class TenantLoginScreen extends StatefulWidget {
   const TenantLoginScreen({super.key});
@@ -37,8 +38,10 @@ class _TenantLoginScreenState extends State<TenantLoginScreen> {
 
     if (success) {
       // Login berhasil, navigate ke tenant home
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const TenantHomeScreen()),
+      AppNavigator.replaceWith(
+        context,
+        const TenantHomeScreen(),
+        useSlide: false, // Use fade untuk login → dashboard
       );
     } else {
       // Show error

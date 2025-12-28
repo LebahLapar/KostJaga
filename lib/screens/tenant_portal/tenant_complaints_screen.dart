@@ -6,6 +6,7 @@ import '../../providers/complaint_provider.dart';
 import '../../providers/tenant_auth_provider.dart';
 import '../../providers/tenant_provider.dart';
 import '../../models/models.dart';
+import '../../utils/toast_helper.dart';
 
 class TenantComplaintsScreen extends StatefulWidget {
   const TenantComplaintsScreen({super.key});
@@ -570,9 +571,7 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       if (titleController.text.isEmpty || descriptionController.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Harap isi semua field')),
-                        );
+                        ToastHelper.error('❌ Harap isi semua field!');
                         return;
                       }
 
@@ -589,9 +588,8 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
                       if (context.mounted) {
                         Navigator.pop(modalContext);
                         if (success) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Keluhan berhasil dibuat')),
-                          );
+                          ToastHelper.success('✅ Keluhan berhasil dibuat!');
+                          
                           await complaintProvider.fetchComplaints();
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(

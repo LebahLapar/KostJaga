@@ -10,6 +10,7 @@ import '../../models/models.dart';
 import 'tenant_complaints_screen.dart';
 import 'tenant_payments_screen.dart';
 import '../auth/tenant_login_screen.dart';
+import '../../utils/page_transitions.dart';
 
 class TenantHomeScreen extends StatefulWidget {
   const TenantHomeScreen({super.key});
@@ -117,11 +118,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
                   Future.delayed(Duration.zero, () async {
                     await tenantAuthProvider.logout();
                     if (context.mounted) {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                          builder: (_) => const TenantLoginScreen(),
-                        ),
-                        (route) => false,
+                      AppNavigator.pushAndRemoveAll(
+                        context,
+                        const TenantLoginScreen(),
                       );
                     }
                   });
@@ -334,11 +333,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
                     'Keluhan',
                     Icons.report_problem,
                     Colors.red,
-                    () => Navigator.push(
+                    () => AppNavigator.slideRight(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const TenantComplaintsScreen(),
-                      ),
+                      const TenantComplaintsScreen(),
                     ),
                   ),
                   _buildMenuCard(
