@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../providers/tenant_provider.dart';
 import '../../providers/kost_provider.dart';
 import '../../models/models.dart';
+import '../../utils/empty_state_widget.dart'; // ADD THIS
+import '../../utils/shimmer_loading.dart'; // ADD THIS
 
 class TenantsScreen extends StatefulWidget {
   const TenantsScreen({super.key});
@@ -50,28 +52,9 @@ class _TenantsScreenState extends State<TenantsScreen> {
         ],
       ),
       body: tenantProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? ShimmerLoading.cardList(itemCount: 5) // UPDATED: Shimmer loading
           : filteredTenants.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.people_outline,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Belum ada penyewa',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
+              ? _buildEmptyState() // UPDATED: Better empty state
               : RefreshIndicator(
                   onRefresh: _loadData,
                   child: ListView.builder(
@@ -248,6 +231,46 @@ class _TenantsScreenState extends State<TenantsScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // UPDATED: Better empty state with filter logic
+  Widget _buildEmptyState() {
+    final tenantProvider = context.read<TenantProvider>();
+    
+    // Jika ada filter aktif dan hasil kosong
+    if (_filterStatus != 'all' && tenantProvider.tenants.isNotEmpty) {
+      return RefreshIndicator(
+        onRefresh: _loadData,
+        child: ListView(
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.7,
+              child: EmptyStateWidget.noFilterResults(
+                filterName: _filterStatus == 'active' ? 'Aktif' : 'Tidak Aktif',
+                onClearFilter: () {
+                  setState(() => _filterStatus = 'all');
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Jika memang belum ada tenant sama sekali
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: EmptyStateWidget.noTenants(
+              onAddTenant: _showAddTenantDialog,
+            ),
+          ),
+        ],
       ),
     );
   }

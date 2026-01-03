@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/kost_provider.dart';
 import '../../models/models.dart';
+import '../../utils/empty_state_widget.dart'; // ADD THIS
+import '../../utils/shimmer_loading.dart'; // ADD THIS
 
 class RoomsScreen extends StatefulWidget {
   const RoomsScreen({super.key});
@@ -33,28 +35,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
         ],
       ),
       body: kostProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? ShimmerLoading.cardList(itemCount: 5) // UPDATED: Shimmer instead of spinner
           : filteredRooms.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.meeting_room_outlined,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Belum ada kamar',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
+              ? _buildEmptyState() // UPDATED: Better empty state
               : RefreshIndicator(
                   onRefresh: () => kostProvider.fetchRooms(),
                   child: ListView.builder(
@@ -247,6 +230,46 @@ class _RoomsScreenState extends State<RoomsScreen> {
       default:
         return type;
     }
+  }
+
+  // UPDATED: Better empty state with logic for filter
+  Widget _buildEmptyState() {
+    final kostProvider = context.read<KostProvider>();
+    
+    // Jika ada filter aktif dan hasil kosong
+    if (_filterStatus != 'all' && kostProvider.rooms.isNotEmpty) {
+      return RefreshIndicator(
+        onRefresh: () => kostProvider.fetchRooms(),
+        child: ListView(
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.7,
+              child: EmptyStateWidget.noFilterResults(
+                filterName: _getStatusText(_filterStatus),
+                onClearFilter: () {
+                  setState(() => _filterStatus = 'all');
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Jika memang belum ada kamar sama sekali
+    return RefreshIndicator(
+      onRefresh: () => kostProvider.fetchRooms(),
+      child: ListView(
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: EmptyStateWidget.noRooms(
+              onAddRoom: _showAddRoomDialog,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showFilterDialog() {

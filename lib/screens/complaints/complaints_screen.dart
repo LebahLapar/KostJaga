@@ -5,6 +5,7 @@ import '../../providers/complaint_provider.dart';
 import '../../providers/tenant_provider.dart';
 import '../../providers/kost_provider.dart';
 import '../../models/models.dart';
+import '../../utils/empty_state_widget.dart';
 
 class ComplaintsScreen extends StatefulWidget {
   const ComplaintsScreen({super.key});
@@ -88,7 +89,26 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
           final filteredComplaints = _getFilteredComplaints(complaintProvider.complaints);
 
           if (filteredComplaints.isEmpty) {
-            return _buildEmptyState();
+            // Jika ada filter
+            if (_filterStatus != 'all' || _filterCategory != 'all') {
+              return EmptyStateWidget.noFilterResults(
+                filterName: '${_getStatusLabel(_filterStatus)} - ${_getCategoryLabel(_filterCategory)}',
+                onClearFilter: () {
+                  setState(() {
+                    _filterStatus = 'all';
+                    _filterCategory = 'all';
+                  });
+                },
+              );
+            }
+
+            // Jika memang kosong (tenant belum submit keluhan)
+            return const EmptyStateWidget(
+              icon: '✅',
+              title: 'Tidak Ada Keluhan',
+              message: 'Belum ada keluhan dari penyewa.\nSemua berjalan lancar!',
+              iconColor: Colors.green,
+            );
           }
 
           return Column(

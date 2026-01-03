@@ -7,6 +7,8 @@ import '../../providers/tenant_auth_provider.dart';
 import '../../providers/tenant_provider.dart';
 import '../../models/models.dart';
 import '../../utils/toast_helper.dart';
+import '../../utils/shimmer_loading.dart';
+import '../../utils/empty_state_widget.dart'; // ADD THIS
 
 class TenantComplaintsScreen extends StatefulWidget {
   const TenantComplaintsScreen({super.key});
@@ -51,7 +53,10 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
       body: Consumer2<ComplaintProvider, TenantAuthProvider>(
         builder: (context, complaintProvider, tenantAuthProvider, child) {
           if (complaintProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return ListView.builder(
+              itemCount: 3,
+              itemBuilder: (context, index) => ShimmerLoading.complaintCard(),
+            );
           }
 
           final tenantId = tenantAuthProvider.tenantId;
@@ -69,8 +74,19 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
             complaints = complaints.where((c) => c.status == _filterStatus).toList();
           }
 
+          // UPDATED: Better empty state logic
           if (complaints.isEmpty) {
-            return _buildEmptyState();
+            return RefreshIndicator(
+              onRefresh: _loadData,
+              child: ListView(
+                children: [
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.7,
+                    child: _buildEmptyState(),
+                  ),
+                ],
+              ),
+            );
           }
 
           // Calculate summary
@@ -321,21 +337,30 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
     );
   }
 
+  // UPDATED: Better empty state with proper logic
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.chat_bubble_outline, size: 80, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text('Belum ada keluhan', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
-          const SizedBox(height: 8),
-          Text(
-            'Tap tombol + untuk membuat keluhan baru',
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-          ),
-        ],
-      ),
+    // Get all complaints untuk tenant ini (tanpa filter)
+    final complaintProvider = context.read<ComplaintProvider>();
+    final tenantAuthProvider = context.read<TenantAuthProvider>();
+    final tenantId = tenantAuthProvider.tenantId;
+    
+    final allMyComplaints = complaintProvider.complaints
+        .where((c) => c.tenantId == tenantId)
+        .toList();
+
+    // Jika ada filter aktif dan hasil kosong
+    if (_filterStatus != 'all' && allMyComplaints.isNotEmpty) {
+      return EmptyStateWidget.noFilterResults(
+        filterName: _getStatusLabel(_filterStatus),
+        onClearFilter: () {
+          setState(() => _filterStatus = 'all');
+        },
+      );
+    }
+
+    // Jika memang belum ada keluhan sama sekali
+    return EmptyStateWidget.noComplaints(
+      onCreateComplaint: _showAddComplaintDialog,
     );
   }
 
@@ -592,12 +617,8 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
                           
                           await complaintProvider.fetchComplaints();
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                tenantAuthProvider.errorMessage ?? 'Gagal membuat keluhan',
-                              ),
-                            ),
+                          ToastHelper.error(
+                            tenantAuthProvider.errorMessage ?? 'Gagal membuat keluhan',
                           );
                         }
                       }

@@ -11,6 +11,7 @@ import 'tenant_complaints_screen.dart';
 import 'tenant_payments_screen.dart';
 import '../auth/tenant_login_screen.dart';
 import '../../utils/page_transitions.dart';
+import '../../utils/shimmer_loading.dart';
 
 class TenantHomeScreen extends StatefulWidget {
   const TenantHomeScreen({super.key});
@@ -70,6 +71,19 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
     final tenantAuthProvider = context.watch<TenantAuthProvider>();
     final paymentProvider = context.watch<PaymentProvider>();
     final complaintProvider = context.watch<ComplaintProvider>();
+    final tenantProvider = context.watch<TenantProvider>();
+
+    if (tenantProvider.isLoading) {
+      return SingleChildScrollView(
+        child: Column(
+          children: [
+            ShimmerLoading.tenantInfoCard(),
+            ShimmerLoading.statsCards(),
+            ShimmerLoading.list(itemCount: 4, itemHeight: 80),
+          ],
+        ),
+      );
+    }
 
     // Get tenant's data
     final tenantId = tenantAuthProvider.tenantId;

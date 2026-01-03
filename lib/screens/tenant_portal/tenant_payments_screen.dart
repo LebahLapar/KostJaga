@@ -5,6 +5,8 @@ import '../../providers/tenant_auth_provider.dart';
 import '../../providers/payment_provider.dart';
 import '../../providers/kost_provider.dart';
 import '../../models/models.dart';
+import '../../utils/shimmer_loading.dart';
+import '../../utils/empty_state_widget.dart';
 
 class TenantPaymentsScreen extends StatefulWidget {
   const TenantPaymentsScreen({super.key});
@@ -59,7 +61,17 @@ class _TenantPaymentsScreenState extends State<TenantPaymentsScreen> {
       body: Consumer2<PaymentProvider, TenantAuthProvider>(
         builder: (context, paymentProvider, tenantAuthProvider, child) {
           if (paymentProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return Column(
+              children: [
+                ShimmerLoading.statsCards(), // Stats cards shimmer
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: 4,
+                    itemBuilder: (context, index) => ShimmerLoading.paymentCard(),
+                  ),
+                ),
+              ],
+            );
           }
 
           final tenantId = tenantAuthProvider.tenantId;
@@ -69,7 +81,18 @@ class _TenantPaymentsScreenState extends State<TenantPaymentsScreen> {
           );
 
           if (filteredPayments.isEmpty) {
-            return _buildEmptyState();
+            // Jika ada filter aktif
+            if (_selectedFilter != 'all') {
+              return EmptyStateWidget.noFilterResults(
+                filterName: _getFilterLabel(_selectedFilter),
+                onClearFilter: () {
+                  setState(() => _selectedFilter = 'all');
+                },
+              );
+            }
+
+            // Jika memang belum ada payment
+            return EmptyStateWidget.noPayments();
           }
 
           // Calculate summary
