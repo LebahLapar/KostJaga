@@ -40,6 +40,9 @@ dependencies:
   # Charts
   fl_chart: ^0.66.0
 
+  fluttertoast: ^8.2.4
+  shimmer: ^3.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -50,3 +53,4 @@ flutter:
 
   assets:
     - .env
+    - assets/images/

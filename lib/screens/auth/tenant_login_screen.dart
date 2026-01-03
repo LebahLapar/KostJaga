@@ -1,49 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui';
-import '../../providers/auth_provider.dart';
-import '../home_screen.dart';
+import '../../providers/tenant_auth_provider.dart';
+import '../tenant_portal/tenant_home_screen.dart';
+import '../../utils/page_transitions.dart';
 import '../splash_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class TenantLoginScreen extends StatefulWidget {
+  const TenantLoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<TenantLoginScreen> createState() => _TenantLoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _TenantLoginScreenState extends State<TenantLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isPasswordVisible = false;
+  final _roomCodeController = TextEditingController();
+  final _pinCodeController = TextEditingController();
+  bool _isPinVisible = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
+    _roomCodeController.dispose();
+    _pinCodeController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.signIn(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
+    final tenantAuthProvider = context.read<TenantAuthProvider>();
+    
+    final success = await tenantAuthProvider.loginWithRoomCode(
+      roomCode: _roomCodeController.text.trim(),
+      pinCode: _pinCodeController.text.trim(),
     );
 
     if (!mounted) return;
 
     if (success) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      // Login berhasil, navigate ke tenant home
+      AppNavigator.replaceWith(
+        context,
+        const TenantHomeScreen(),
+        useSlide: false, // Use fade untuk login → dashboard
       );
     } else {
+      // Show error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? 'Login gagal'),
+          content: Text(
+            tenantAuthProvider.errorMessage ?? 'Login gagal',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -70,16 +78,16 @@ class _LoginScreenState extends State<LoginScreen> {
               'assets/images/login_background.jpg',
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
-                // Fallback to gradient if image not found
+                // Fallback gradient untuk tenant (Green theme)
                 return Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Color(0xFF2196F3),
-                        Color(0xFF1976D2),
-                        Color(0xFF0D47A1),
+                        Color(0xFF4CAF50),
+                        Color(0xFF388E3C),
+                        Color(0xFF2E7D32),
                       ],
                     ),
                   ),
@@ -148,7 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // Logo & Title with Glass Effect
+                          // Logo with Glass Effect
                           Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
@@ -175,34 +183,35 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     ],
                                   ),
-                                  child: Icon(
+                                  child: const Icon(
                                     Icons.home_work_rounded,
                                     size: 40,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Color(0xFF4CAF50),
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                
-                                // App Name
+
+                                // Title
                                 const Text(
-                                  'JagaKost',
+                                  'Portal Penyewa',
                                   style: TextStyle(
-                                    fontSize: 32,
+                                    fontSize: 28,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
                                     letterSpacing: 1,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                
-                                // Tagline
+
+                                // Subtitle
                                 Text(
-                                  'Kelola Kost Anda dengan Mudah',
+                                  'Masuk dengan kode kamar dan PIN Anda',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     color: Colors.white.withOpacity(0.9),
                                     letterSpacing: 0.5,
                                   ),
+                                  textAlign: TextAlign.center,
                                 ),
                               ],
                             ),
@@ -210,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           const SizedBox(height: 40),
 
-                          // Login Form Card with Glassmorphism
+                          // Login Form with Glassmorphism
                           ClipRRect(
                             borderRadius: BorderRadius.circular(24),
                             child: BackdropFilter(
@@ -230,39 +239,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
-                                      // Welcome Text
-                                      const Text(
-                                        'Selamat Datang',
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Masuk ke akun JagaKost Anda',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.white.withOpacity(0.8),
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      const SizedBox(height: 32),
-
-                                      // Email Field
+                                      // Room Code Field
                                       TextFormField(
-                                        controller: _emailController,
-                                        keyboardType: TextInputType.emailAddress,
+                                        controller: _roomCodeController,
                                         style: const TextStyle(color: Colors.white),
+                                        textCapitalization: TextCapitalization.characters,
                                         decoration: InputDecoration(
-                                          labelText: 'Email',
+                                          labelText: 'Kode Kamar',
                                           labelStyle: TextStyle(
                                             color: Colors.white.withOpacity(0.8),
                                           ),
+                                          hintText: 'Contoh: A101, 102, B201',
+                                          hintStyle: TextStyle(
+                                            color: Colors.white.withOpacity(0.4),
+                                          ),
                                           prefixIcon: Icon(
-                                            Icons.email_outlined,
+                                            Icons.meeting_room,
                                             color: Colors.white.withOpacity(0.8),
                                           ),
                                           filled: true,
@@ -292,10 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                         validator: (value) {
                                           if (value == null || value.isEmpty) {
-                                            return 'Email tidak boleh kosong';
-                                          }
-                                          if (!value.contains('@')) {
-                                            return 'Email tidak valid';
+                                            return 'Kode kamar tidak boleh kosong';
                                           }
                                           return null;
                                         },
@@ -303,15 +292,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                       const SizedBox(height: 16),
 
-                                      // Password Field
+                                      // PIN Field
                                       TextFormField(
-                                        controller: _passwordController,
-                                        obscureText: !_isPasswordVisible,
+                                        controller: _pinCodeController,
+                                        obscureText: !_isPinVisible,
                                         style: const TextStyle(color: Colors.white),
+                                        keyboardType: TextInputType.number,
+                                        maxLength: 4,
                                         decoration: InputDecoration(
-                                          labelText: 'Password',
+                                          labelText: 'PIN',
                                           labelStyle: TextStyle(
                                             color: Colors.white.withOpacity(0.8),
+                                          ),
+                                          hintText: '4 digit PIN',
+                                          hintStyle: TextStyle(
+                                            color: Colors.white.withOpacity(0.4),
                                           ),
                                           prefixIcon: Icon(
                                             Icons.lock_outline,
@@ -319,14 +314,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ),
                                           suffixIcon: IconButton(
                                             icon: Icon(
-                                              _isPasswordVisible
+                                              _isPinVisible
                                                   ? Icons.visibility_off
                                                   : Icons.visibility,
                                               color: Colors.white.withOpacity(0.8),
                                             ),
                                             onPressed: () {
                                               setState(() {
-                                                _isPasswordVisible = !_isPasswordVisible;
+                                                _isPinVisible = !_isPinVisible;
                                               });
                                             },
                                           ),
@@ -354,13 +349,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                           errorStyle: const TextStyle(
                                             color: Colors.yellowAccent,
                                           ),
+                                          counterText: '',
                                         ),
                                         validator: (value) {
                                           if (value == null || value.isEmpty) {
-                                            return 'Password tidak boleh kosong';
+                                            return 'PIN tidak boleh kosong';
                                           }
-                                          if (value.length < 6) {
-                                            return 'Password minimal 6 karakter';
+                                          if (value.length != 4) {
+                                            return 'PIN harus 4 digit';
                                           }
                                           return null;
                                         },
@@ -369,13 +365,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                       const SizedBox(height: 24),
 
                                       // Login Button
-                                      Consumer<AuthProvider>(
-                                        builder: (context, authProvider, _) {
+                                      Consumer<TenantAuthProvider>(
+                                        builder: (context, tenantAuthProvider, _) {
                                           return ElevatedButton(
-                                            onPressed: authProvider.isLoading ? null : _handleLogin,
+                                            onPressed: tenantAuthProvider.isLoading 
+                                                ? null 
+                                                : _handleLogin,
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: Colors.white,
-                                              foregroundColor: const Color(0xFF2196F3),
+                                              foregroundColor: const Color(0xFF4CAF50),
                                               padding: const EdgeInsets.symmetric(vertical: 16),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius: BorderRadius.circular(12),
@@ -383,14 +381,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                               elevation: 8,
                                               shadowColor: Colors.black.withOpacity(0.3),
                                             ),
-                                            child: authProvider.isLoading
+                                            child: tenantAuthProvider.isLoading
                                                 ? const SizedBox(
                                                     height: 20,
                                                     width: 20,
                                                     child: CircularProgressIndicator(
                                                       strokeWidth: 2,
                                                       valueColor: AlwaysStoppedAnimation<Color>(
-                                                        Color(0xFF2196F3),
+                                                        Color(0xFF4CAF50),
                                                       ),
                                                     ),
                                                   )
@@ -405,6 +403,64 @@ class _LoginScreenState extends State<LoginScreen> {
                                           );
                                         },
                                       ),
+
+                                      const SizedBox(height: 16),
+
+                                      // Info Box
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: Colors.blue.withOpacity(0.3),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Icon(
+                                              Icons.info_outline,
+                                              color: Colors.white.withOpacity(0.9),
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Informasi Login',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    '• Kode kamar dan PIN diberikan oleh pemilik kost saat Anda check-in',
+                                                    style: TextStyle(
+                                                      color: Colors.white.withOpacity(0.9),
+                                                      fontSize: 11,
+                                                      height: 1.4,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    '• Jika lupa PIN, silakan hubungi pemilik kost',
+                                                    style: TextStyle(
+                                                      color: Colors.white.withOpacity(0.9),
+                                                      fontSize: 11,
+                                                      height: 1.4,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -414,14 +470,40 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           const SizedBox(height: 24),
 
-                          // Footer Text
-                          Text(
-                            '© 2025 JagaKost. All rights reserved.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withOpacity(0.6),
+                          // Help Button
+                          TextButton.icon(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Butuh Bantuan?'),
+                                  content: const Text(
+                                    'Hubungi pemilik kost Anda untuk mendapatkan:\n\n'
+                                    '1. Kode Kamar (contoh: A101, 102)\n'
+                                    '2. PIN 4 digit\n\n'
+                                    'Credentials ini diberikan saat Anda check-in ke kamar.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Mengerti'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            icon: Icon(
+                              Icons.help_outline,
+                              color: Colors.white.withOpacity(0.8),
+                              size: 20,
                             ),
-                            textAlign: TextAlign.center,
+                            label: Text(
+                              'Butuh Bantuan?',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 14,
+                              ),
+                            ),
                           ),
                         ],
                       ),
