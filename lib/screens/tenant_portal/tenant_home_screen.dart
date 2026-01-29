@@ -7,11 +7,14 @@ import '../../providers/kost_provider.dart';
 import '../../providers/payment_provider.dart';
 import '../../providers/complaint_provider.dart';
 import '../../models/models.dart';
+import '../../main.dart';
 import 'tenant_complaints_screen.dart';
 import 'tenant_payments_screen.dart';
 import '../auth/tenant_login_screen.dart';
 import '../../utils/page_transitions.dart';
 import '../../utils/shimmer_loading.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/design_system.dart';
 
 class TenantHomeScreen extends StatefulWidget {
   const TenantHomeScreen({super.key});
@@ -72,24 +75,26 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
     final paymentProvider = context.watch<PaymentProvider>();
     final complaintProvider = context.watch<ComplaintProvider>();
     final tenantProvider = context.watch<TenantProvider>();
+    final themeProvider = context.watch<ThemeModeProvider>();
 
     if (tenantProvider.isLoading) {
-      return SingleChildScrollView(
-        child: Column(
-          children: [
-            ShimmerLoading.tenantInfoCard(),
-            ShimmerLoading.statsCards(),
-            ShimmerLoading.list(itemCount: 4, itemHeight: 80),
-          ],
+      return Scaffold(
+        body: SingleChildScrollView(
+          child: Column(
+            children: [
+              ShimmerLoading.tenantInfoCard(),
+              ShimmerLoading.statsCards(),
+              ShimmerLoading.list(itemCount: 4, itemHeight: 80),
+            ],
+          ),
         ),
       );
     }
 
     // Get tenant's data
     final tenantId = tenantAuthProvider.tenantId;
-    final myPayments = paymentProvider.payments
-        .where((p) => p.tenantId == tenantId)
-        .toList();
+    final myPayments =
+        paymentProvider.payments.where((p) => p.tenantId == tenantId).toList();
     final myComplaints = complaintProvider.complaints
         .where((c) => c.tenantId == tenantId)
         .toList();
@@ -102,286 +107,307 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
         .length;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Portal Penyewa'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Fitur notifikasi segera hadir')),
-              );
-            },
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.account_circle),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                enabled: false,
-                child: ListTile(
-                  leading: const Icon(Icons.person),
-                  title: Text(tenantAuthProvider.tenantName ?? 'Loading...'),
-                  subtitle: Text('Kamar ${tenantAuthProvider.roomNumber ?? tenantAuthProvider.roomCode}'),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                onTap: () {
-                  Future.delayed(Duration.zero, () async {
-                    await tenantAuthProvider.logout();
-                    if (context.mounted) {
-                      AppNavigator.pushAndRemoveAll(
-                        context,
-                        const TenantLoginScreen(),
-                      );
-                    }
-                  });
-                },
-                child: const ListTile(
-                  leading: Icon(Icons.logout, color: Colors.red),
-                  title: Text('Keluar', style: TextStyle(color: Colors.red)),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(tenantAuthProvider, themeProvider),
       body: RefreshIndicator(
         onRefresh: _loadData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(Spacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Welcome Card
-              Card(
-                elevation: 2,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).colorScheme.primary,
-                        Theme.of(context).colorScheme.secondary,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Selamat Datang!',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        tenantAuthProvider.tenantName ?? 'Loading...',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+              // Greeting
+              _buildGreeting(tenantAuthProvider),
+              const SizedBox(height: Spacing.lg),
 
-              // Room Info Card
+              // Room Info
               if (_currentRoom != null) ...[
-                Text(
-                  'Info Kamar',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    .withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                Icons.meeting_room,
-                                color: Theme.of(context).colorScheme.primary,
-                                size: 30,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Kamar ${_currentRoom!.roomNumber}',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _getRoomTypeText(_currentRoom!.type),
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Divider(height: 24),
-                        _buildInfoRow(
-                          'Harga',
-                          NumberFormat.currency(
-                            locale: 'id_ID',
-                            symbol: 'Rp ',
-                            decimalDigits: 0,
-                          ).format(_currentRoom!.price),
-                        ),
-                        if (_currentTenant != null)
-                          _buildInfoRow(
-                            'Check-in',
-                            DateFormat('dd MMM yyyy')
-                                .format(_currentTenant!.checkInDate),
-                          ),
-                        if (_currentRoom!.description != null)
-                          _buildInfoRow(
-                              'Deskripsi', _currentRoom!.description!),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
+                const SectionHeader(title: 'Kamar Saya'),
+                const SizedBox(height: Spacing.sm),
+                _buildRoomCard(),
+                const SizedBox(height: Spacing.lg),
               ],
 
               // Quick Stats
-              Text(
-                'Ringkasan',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      'Tagihan Pending',
-                      pendingPayments.toString(),
-                      Icons.payment,
-                      Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      'Keluhan Aktif',
-                      pendingComplaints.toString(),
-                      Icons.report_problem,
-                      Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+              const SectionHeader(title: 'Ringkasan'),
+              const SizedBox(height: Spacing.sm),
+              _buildQuickStats(pendingPayments, pendingComplaints),
+              const SizedBox(height: Spacing.lg),
 
-              // Quick Actions
-              Text(
-                'Menu Cepat',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.3,
-                children: [
-                  _buildMenuCard(
-                    context,
-                    'Tagihan',
-                    Icons.payment,
-                    Colors.blue,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const TenantPaymentsScreen(),
-                      ),
-                    ),
-                  ),
-                  _buildMenuCard(
-                    context,
-                    'Keluhan',
-                    Icons.report_problem,
-                    Colors.red,
-                    () => AppNavigator.slideRight(
-                      context,
-                      const TenantComplaintsScreen(),
-                    ),
-                  ),
-                  _buildMenuCard(
-                    context,
-                    'Info Kamar',
-                    Icons.home,
-                    Colors.green,
-                    () {
-                      if (_currentRoom != null) {
-                        _showRoomDetail();
-                      }
-                    },
-                  ),
-                  _buildMenuCard(
-                    context,
-                    'Hubungi Owner',
-                    Icons.phone,
-                    Colors.purple,
-                    () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Fitur hubungi owner segera hadir'),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
+              // Menu
+              const SectionHeader(title: 'Menu'),
+              const SizedBox(height: Spacing.sm),
+              _buildMenuItems(pendingPayments, pendingComplaints),
+              const SizedBox(height: Spacing.lg),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(
+    TenantAuthProvider tenantAuthProvider,
+    ThemeModeProvider themeProvider,
+  ) {
+    return AppBar(
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: context.primaryColor,
+              borderRadius: BorderRadius.circular(Radius.sm),
+            ),
+            child: Icon(
+              Icons.home_rounded,
+              color: context.onPrimaryColor,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: Spacing.sm),
+          const Text('Portal Penyewa'),
+        ],
+      ),
+      actions: [
+        // Theme Toggle
+        IconButton(
+          icon: Icon(
+            themeProvider.isDarkMode
+                ? Icons.light_mode_rounded
+                : Icons.dark_mode_rounded,
+          ),
+          onPressed: () => themeProvider.toggleTheme(),
+        ),
+        // Profile Menu
+        PopupMenuButton<String>(
+          icon: CircleAvatar(
+            radius: 16,
+            backgroundColor: context.primaryColor,
+            child: Text(
+              (tenantAuthProvider.tenantName?.isNotEmpty ?? false)
+                  ? tenantAuthProvider.tenantName![0].toUpperCase()
+                  : '?',
+              style: TextStyle(
+                color: context.onPrimaryColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              enabled: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tenantAuthProvider.tenantName ?? 'Penghuni',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 2),
+                  StatusBadge(
+                    label: 'Kamar ${tenantAuthProvider.roomNumber ?? tenantAuthProvider.roomCode ?? '-'}',
+                    color: context.primaryColor,
+                    small: true,
+                  ),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              onTap: () {
+                Future.delayed(Duration.zero, () async {
+                  await tenantAuthProvider.logout();
+                  if (context.mounted) {
+                    AppNavigator.pushAndRemoveAll(
+                      context,
+                      const TenantLoginScreen(),
+                    );
+                  }
+                });
+              },
+              child: Row(
+                children: [
+                  Icon(Icons.logout_rounded, color: context.errorColor, size: 20),
+                  const SizedBox(width: Spacing.sm),
+                  Text('Keluar', style: TextStyle(color: context.errorColor)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: Spacing.sm),
+      ],
+    );
+  }
+
+  Widget _buildGreeting(TenantAuthProvider tenantAuthProvider) {
+    final greeting = GreetingHelper.getGreeting();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              GreetingHelper.getGreetingIcon(),
+              color: context.secondaryColor,
+              size: 20,
+            ),
+            const SizedBox(width: Spacing.sm),
+            Text(
+              greeting,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: context.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: Spacing.xs),
+        Text(
+          tenantAuthProvider.tenantName ?? 'Penghuni',
+          style: Theme.of(context).textTheme.displaySmall,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRoomCard() {
+    if (_currentRoom == null) return const SizedBox();
+
+    return AppCard(
+      onTap: _showRoomDetail,
+      padding: const EdgeInsets.all(Spacing.md),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: context.primaryColor.withValues(
+                alpha: context.isDarkMode ? 0.2 : 0.1,
+              ),
+              borderRadius: BorderRadius.circular(Radius.md),
+            ),
+            child: Icon(
+              Icons.meeting_room_rounded,
+              color: context.primaryColor,
+              size: 32,
+            ),
+          ),
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Kamar ${_currentRoom!.roomNumber}',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: Spacing.xs),
+                Text(
+                  _getRoomTypeText(_currentRoom!.type),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: Spacing.xs),
+                Text(
+                  NumberFormat.currency(
+                    locale: 'id_ID',
+                    symbol: 'Rp ',
+                    decimalDigits: 0,
+                  ).format(_currentRoom!.price),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: context.successColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: context.textTertiary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickStats(int pendingPayments, int pendingComplaints) {
+    return Row(
+      children: [
+        Expanded(
+          child: StatCard(
+            label: 'Tagihan',
+            value: '$pendingPayments',
+            icon: Icons.receipt_long_rounded,
+            color: pendingPayments > 0 ? context.warningColor : context.successColor,
+          ),
+        ),
+        const SizedBox(width: Spacing.sm),
+        Expanded(
+          child: StatCard(
+            label: 'Keluhan',
+            value: '$pendingComplaints',
+            icon: Icons.report_rounded,
+            color: pendingComplaints > 0 ? context.errorColor : context.successColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuItems(int pendingPayments, int pendingComplaints) {
+    return Column(
+      children: [
+        ActionItem(
+          title: 'Tagihan Saya',
+          subtitle: 'Lihat dan bayar tagihan',
+          icon: Icons.payment_rounded,
+          iconColor: context.infoColor,
+          badge: pendingPayments > 0 ? pendingPayments : null,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const TenantPaymentsScreen()),
+          ),
+        ),
+        const SizedBox(height: Spacing.sm),
+        ActionItem(
+          title: 'Keluhan',
+          subtitle: 'Sampaikan keluhan Anda',
+          icon: Icons.report_rounded,
+          iconColor: context.accentColor,
+          badge: pendingComplaints > 0 ? pendingComplaints : null,
+          onTap: () => AppNavigator.slideRight(
+            context,
+            const TenantComplaintsScreen(),
+          ),
+        ),
+        const SizedBox(height: Spacing.sm),
+        ActionItem(
+          title: 'Info Kamar',
+          subtitle: 'Detail kamar Anda',
+          icon: Icons.home_rounded,
+          iconColor: context.successColor,
+          onTap: () {
+            if (_currentRoom != null) {
+              _showRoomDetail();
+            }
+          },
+        ),
+        const SizedBox(height: Spacing.sm),
+        ActionItem(
+          title: 'Hubungi Pemilik',
+          subtitle: 'Kontak pemilik kost',
+          icon: Icons.phone_rounded,
+          iconColor: context.secondaryColor,
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Fitur segera hadir')),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -398,164 +424,88 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
     }
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuCard(BuildContext context, String title, IconData icon,
-      Color color, VoidCallback onTap) {
-    return Card(
-      elevation: 2,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, size: 28, color: color),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showRoomDetail() {
     if (_currentRoom == null) return;
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      isScrollControlled: true,
       builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(Spacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+            const BottomSheetHandle(),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: context.primaryColor.withValues(
+                      alpha: context.isDarkMode ? 0.2 : 0.1,
+                    ),
+                    borderRadius: BorderRadius.circular(Radius.md),
+                  ),
+                  child: Icon(
+                    Icons.meeting_room_rounded,
+                    color: context.primaryColor,
+                    size: 24,
+                  ),
                 ),
-              ),
+                const SizedBox(width: Spacing.md),
+                Expanded(
+                  child: Text(
+                    'Kamar ${_currentRoom!.roomNumber}',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                ),
+                StatusBadge(
+                  label: 'Aktif',
+                  color: context.successColor,
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            Text(
-              'Detail Kamar ${_currentRoom!.roomNumber}',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+            const SizedBox(height: Spacing.lg),
+            Divider(color: context.dividerColor),
+            const SizedBox(height: Spacing.sm),
+            InfoRow(
+              label: 'Tipe',
+              value: _getRoomTypeText(_currentRoom!.type),
+              icon: Icons.category_rounded,
             ),
-            const SizedBox(height: 16),
-            _buildInfoRow('Tipe', _getRoomTypeText(_currentRoom!.type)),
-            _buildInfoRow(
-              'Harga',
-              NumberFormat.currency(
+            InfoRow(
+              label: 'Harga per Bulan',
+              value: NumberFormat.currency(
                 locale: 'id_ID',
                 symbol: 'Rp ',
                 decimalDigits: 0,
               ).format(_currentRoom!.price),
+              icon: Icons.payments_rounded,
+              valueColor: context.successColor,
             ),
-            if (_currentTenant != null) ...[
-              _buildInfoRow(
-                'Tanggal Masuk',
-                DateFormat('dd MMMM yyyy').format(_currentTenant!.checkInDate),
+            if (_currentTenant != null)
+              InfoRow(
+                label: 'Tanggal Masuk',
+                value: DateFormat('dd MMMM yyyy').format(_currentTenant!.checkInDate),
+                icon: Icons.calendar_today_rounded,
               ),
-              _buildInfoRow('Status', 'Aktif'),
-            ],
-            if (_currentRoom!.description != null) ...[
-              const SizedBox(height: 16),
-              const Text(
+            if (_currentRoom!.description != null &&
+                _currentRoom!.description!.isNotEmpty) ...[
+              const SizedBox(height: Spacing.md),
+              Text(
                 'Deskripsi',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: Spacing.xs),
+              Text(
+                _currentRoom!.description!,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: context.textSecondary,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(_currentRoom!.description!),
             ],
+            const SizedBox(height: Spacing.lg),
           ],
         ),
       ),

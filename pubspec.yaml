@@ -26,7 +26,7 @@ dependencies:
   
   # Image & File
   image_picker: ^1.0.7
-  file_picker: ^6.1.1
+  file_picker: ^8.0.0
   
   # Local Storage
   shared_preferences: ^2.2.2
@@ -35,7 +35,7 @@ dependencies:
   url_launcher: ^6.2.4
   
   # Notification
-  flutter_local_notifications: ^16.3.2
+  flutter_local_notifications: ^17.0.0
   
   # Charts
   fl_chart: ^0.66.0
@@ -47,6 +47,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+
 
 flutter:
   uses-material-design: true
@@ -54,3 +56,9 @@ flutter:
   assets:
     - .env
     - assets/images/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/logo.png" 
+  min_sdk_android: 21
