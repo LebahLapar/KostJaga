@@ -5,11 +5,14 @@ import '../providers/auth_provider.dart';
 import '../providers/kost_provider.dart';
 import '../providers/tenant_provider.dart';
 import '../providers/payment_provider.dart';
+import '../main.dart';
 import 'rooms/rooms_screen.dart';
 import 'tenants/tenants_screen.dart';
 import 'payments/payments_screen.dart';
 import 'complaints/complaints_screen.dart';
 import 'auth/login_screen.dart';
+import '../theme/app_colors.dart';
+import '../theme/design_system.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -36,13 +39,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleLogout() async {
     final authProvider = context.read<AuthProvider>();
     await authProvider.signOut();
-    
+
     if (!mounted) return;
-    
+
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => const LoginScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
     );
   }
@@ -52,234 +53,39 @@ class _HomeScreenState extends State<HomeScreen> {
     final authProvider = context.watch<AuthProvider>();
     final kostProvider = context.watch<KostProvider>();
     final paymentProvider = context.watch<PaymentProvider>();
+    final themeProvider = context.watch<ThemeModeProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('JagaKost Dashboard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Fitur notifikasi segera hadir')),
-              );
-            },
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.account_circle),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                enabled: false,
-                child: ListTile(
-                  leading: const Icon(Icons.person),
-                  title: Text(authProvider.user?.email ?? ''),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                child: const ListTile(
-                  leading: Icon(Icons.logout, color: Colors.red),
-                  title: Text('Keluar', style: TextStyle(color: Colors.red)),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                onTap: () {
-                  Future.delayed(Duration.zero, _handleLogout);
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(authProvider, themeProvider),
       body: RefreshIndicator(
         onRefresh: _loadData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(Spacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Welcome Card
-              Card(
-                elevation: 2,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).colorScheme.primary,
-                        Theme.of(context).colorScheme.secondary,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Selamat Datang!',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        DateFormat('EEEE, dd MMMM yyyy', 'id_ID')
-                            .format(DateTime.now()),
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+              // Greeting Section
+              _buildGreeting(authProvider),
+              const SizedBox(height: Spacing.lg),
 
-              // Statistics Cards
-              Text(
-                'Ringkasan',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.5,
-                children: [
-                  _buildStatCard(
-                    context,
-                    'Total Kamar',
-                    '${kostProvider.rooms.length}',
-                    Icons.meeting_room,
-                    Colors.blue,
-                  ),
-                  _buildStatCard(
-                    context,
-                    'Kamar Terisi',
-                    '${kostProvider.occupiedRooms}',
-                    Icons.home,
-                    Colors.green,
-                  ),
-                  _buildStatCard(
-                    context,
-                    'Kamar Kosong',
-                    '${kostProvider.availableRooms}',
-                    Icons.home_outlined,
-                    Colors.orange,
-                  ),
-                  _buildStatCard(
-                    context,
-                    'Maintenance',
-                    '${kostProvider.maintenanceRooms}',
-                    Icons.construction,
-                    Colors.red,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+              // Stats Section
+              const SectionHeader(title: 'Ringkasan'),
+              const SizedBox(height: Spacing.sm),
+              _buildStatsGrid(kostProvider),
+              const SizedBox(height: Spacing.lg),
 
-              // Payment Status
-              Text(
-                'Status Pembayaran',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildPaymentCard(
-                      context,
-                      'Pending',
-                      paymentProvider.pendingPayments,
-                      Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildPaymentCard(
-                      context,
-                      'Overdue',
-                      paymentProvider.overduePayments,
-                      Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+              // Payment Summary
+              const SectionHeader(title: 'Status Pembayaran'),
+              const SizedBox(height: Spacing.sm),
+              _buildPaymentSummary(paymentProvider),
+              const SizedBox(height: Spacing.lg),
 
               // Quick Actions
-              Text(
-                'Menu Cepat',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.2,
-                children: [
-                  _buildMenuCard(
-                    context,
-                    'Kelola Kamar',
-                    Icons.meeting_room,
-                    Colors.blue,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const RoomsScreen()),
-                    ),
-                  ),
-                  _buildMenuCard(
-                    context,
-                    'Kelola Penyewa',
-                    Icons.people,
-                    Colors.green,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TenantsScreen()),
-                    ),
-                  ),
-                  _buildMenuCard(
-                    context,
-                    'Pembayaran',
-                    Icons.payment,
-                    Colors.orange,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const PaymentsScreen()),
-                    ),
-                  ),
-                  _buildMenuCard(
-                    context,
-                    'Keluhan',
-                    Icons.report_problem,
-                    Colors.red,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const ComplaintsScreen()),
-                    ),
-                  ),
-                ],
-              ),
+              const SectionHeader(title: 'Menu'),
+              const SizedBox(height: Spacing.sm),
+              _buildQuickActions(paymentProvider),
+              const SizedBox(height: Spacing.lg),
             ],
           ),
         ),
@@ -287,110 +93,332 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStatCard(
-    BuildContext context,
-    String title,
-    String value,
-    IconData icon,
-    Color color,
+  PreferredSizeWidget _buildAppBar(
+    AuthProvider authProvider,
+    ThemeModeProvider themeProvider,
   ) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+    return AppBar(
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: context.primaryColor,
+              borderRadius: BorderRadius.circular(Radius.sm),
             ),
-            const SizedBox(height: 4),
+            child: Icon(
+              Icons.home_work_rounded,
+              color: context.onPrimaryColor,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: Spacing.sm),
+          const Text('JagaKost'),
+        ],
+      ),
+      actions: [
+        // Theme Toggle
+        IconButton(
+          icon: Icon(
+            themeProvider.isDarkMode
+                ? Icons.light_mode_rounded
+                : Icons.dark_mode_rounded,
+          ),
+          onPressed: () => themeProvider.toggleTheme(),
+        ),
+        // Profile Menu
+        PopupMenuButton<String>(
+          icon: CircleAvatar(
+            radius: 16,
+            backgroundColor: context.primaryColor,
+            child: Text(
+              (authProvider.user?.email?.isNotEmpty ?? false)
+                  ? authProvider.user!.email![0].toUpperCase()
+                  : '?',
+              style: TextStyle(
+                color: context.onPrimaryColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              enabled: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pemilik Kost',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  Text(
+                    authProvider.user?.email ?? '',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              onTap: () => Future.delayed(Duration.zero, _handleLogout),
+              child: Row(
+                children: [
+                  Icon(Icons.logout_rounded,
+                      color: context.errorColor, size: 20),
+                  const SizedBox(width: Spacing.sm),
+                  Text(
+                    'Keluar',
+                    style: TextStyle(color: context.errorColor),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: Spacing.sm),
+      ],
+    );
+  }
+
+  Widget _buildGreeting(AuthProvider authProvider) {
+    final greeting = GreetingHelper.getGreeting();
+    final date =
+        DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(DateTime.now());
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              GreetingHelper.getGreetingIcon(),
+              color: context.secondaryColor,
+              size: 20,
+            ),
+            const SizedBox(width: Spacing.sm),
             Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
+              greeting,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: context.textSecondary,
                   ),
             ),
           ],
         ),
+        const SizedBox(height: Spacing.xs),
+        Text(
+          'Dashboard',
+          style: Theme.of(context).textTheme.displaySmall,
+        ),
+        const SizedBox(height: Spacing.xs),
+        Text(
+          date,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsGrid(KostProvider kostProvider) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCardHorizontal(
+                'Total Kamar',
+                '${kostProvider.rooms.length}',
+                Icons.meeting_room_rounded,
+                context.infoColor,
+              ),
+            ),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: _buildStatCardHorizontal(
+                'Kamar Terisi',
+                '${kostProvider.occupiedRooms}',
+                Icons.home_rounded,
+                context.successColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: Spacing.sm),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCardHorizontal(
+                'Kamar Kosong',
+                '${kostProvider.availableRooms}',
+                Icons.home_outlined,
+                context.warningColor,
+              ),
+            ),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: _buildStatCardHorizontal(
+                'Maintenance',
+                '${kostProvider.maintenanceRooms}',
+                Icons.construction_rounded,
+                context.errorColor,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCardHorizontal(
+      String label, String value, IconData icon, Color color) {
+    return AppCard(
+      padding: const EdgeInsets.all(Spacing.md),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: context.isDarkMode ? 0.2 : 0.1),
+              borderRadius: BorderRadius.circular(Radius.md),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildPaymentSummary(PaymentProvider paymentProvider) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildPaymentCard(
+            'Pending',
+            paymentProvider.pendingPayments,
+            context.warningColor,
+            Icons.schedule_rounded,
+          ),
+        ),
+        const SizedBox(width: Spacing.sm),
+        Expanded(
+          child: _buildPaymentCard(
+            'Terlambat',
+            paymentProvider.overduePayments,
+            context.errorColor,
+            Icons.warning_rounded,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildPaymentCard(
-    BuildContext context,
-    String title,
-    int count,
-    Color color,
-  ) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text(
-              '$count',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+      String title, int count, Color color, IconData icon) {
+    return AppCard(
+      padding: const EdgeInsets.all(Spacing.md),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: context.isDarkMode ? 0.2 : 0.1),
+              borderRadius: BorderRadius.circular(Radius.md),
             ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodyMedium,
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$count',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildMenuCard(
-    BuildContext context,
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return Card(
-      elevation: 2,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, size: 32, color: color),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
+  Widget _buildQuickActions(PaymentProvider paymentProvider) {
+    return Column(
+      children: [
+        ActionItem(
+          title: 'Kelola Kamar',
+          subtitle: 'Lihat dan atur kamar kost',
+          icon: Icons.meeting_room_rounded,
+          iconColor: context.infoColor,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const RoomsScreen()),
           ),
         ),
-      ),
+        const SizedBox(height: Spacing.sm),
+        ActionItem(
+          title: 'Kelola Penyewa',
+          subtitle: 'Daftar penghuni kost',
+          icon: Icons.people_rounded,
+          iconColor: context.successColor,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const TenantsScreen()),
+          ),
+        ),
+        const SizedBox(height: Spacing.sm),
+        ActionItem(
+          title: 'Pembayaran',
+          subtitle: 'Tagihan dan riwayat pembayaran',
+          icon: Icons.payment_rounded,
+          iconColor: context.warningColor,
+          badge: paymentProvider.pendingPayments > 0
+              ? paymentProvider.pendingPayments
+              : null,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PaymentsScreen()),
+          ),
+        ),
+        const SizedBox(height: Spacing.sm),
+        ActionItem(
+          title: 'Keluhan',
+          subtitle: 'Laporan dari penghuni',
+          icon: Icons.report_rounded,
+          iconColor: context.accentColor,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ComplaintsScreen()),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -21,11 +21,13 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // ... (kode lain biarkan sama)
         applicationId = "com.example.jagakost"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        
+        // GANTI baris 'minSdk = flutter.minSdkVersion' menjadi angka 21 atau 24
+        minSdk = flutter.minSdkVersion 
+        // atau gunakan minSdk = 24 jika 21 masih error
+        
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

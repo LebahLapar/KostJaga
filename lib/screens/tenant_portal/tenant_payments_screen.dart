@@ -7,6 +7,8 @@ import '../../providers/kost_provider.dart';
 import '../../models/models.dart';
 import '../../utils/shimmer_loading.dart';
 import '../../utils/empty_state_widget.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/design_system.dart';
 
 class TenantPaymentsScreen extends StatefulWidget {
   const TenantPaymentsScreen({super.key});
@@ -29,11 +31,9 @@ class _TenantPaymentsScreenState extends State<TenantPaymentsScreen> {
 
   List<Payment> _getFilteredPayments(List<Payment> payments, String? tenantId) {
     if (tenantId == null) return [];
-    
-    // Filter only this tenant's payments
+
     var filtered = payments.where((p) => p.tenantId == tenantId).toList();
-    
-    // Apply status filter
+
     if (_selectedFilter == 'all') return filtered;
     return filtered.where((p) => p.status == _selectedFilter).toList();
   }
@@ -43,31 +43,18 @@ class _TenantPaymentsScreenState extends State<TenantPaymentsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tagihan Saya'),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.filter_list),
-            onSelected: (value) {
-              setState(() => _selectedFilter = value);
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'all', child: Text('Semua')),
-              const PopupMenuItem(value: 'pending', child: Text('Belum Bayar')),
-              const PopupMenuItem(value: 'paid', child: Text('Sudah Bayar')),
-              const PopupMenuItem(value: 'overdue', child: Text('Terlambat')),
-            ],
-          ),
-        ],
       ),
       body: Consumer2<PaymentProvider, TenantAuthProvider>(
         builder: (context, paymentProvider, tenantAuthProvider, child) {
           if (paymentProvider.isLoading) {
             return Column(
               children: [
-                ShimmerLoading.statsCards(), // Stats cards shimmer
+                ShimmerLoading.statsCards(),
                 Expanded(
                   child: ListView.builder(
                     itemCount: 4,
-                    itemBuilder: (context, index) => ShimmerLoading.paymentCard(),
+                    itemBuilder: (context, index) =>
+                        ShimmerLoading.paymentCard(),
                   ),
                 ),
               ],
@@ -81,17 +68,12 @@ class _TenantPaymentsScreenState extends State<TenantPaymentsScreen> {
           );
 
           if (filteredPayments.isEmpty) {
-            // Jika ada filter aktif
             if (_selectedFilter != 'all') {
               return EmptyStateWidget.noFilterResults(
-                filterName: _getFilterLabel(_selectedFilter),
-                onClearFilter: () {
-                  setState(() => _selectedFilter = 'all');
-                },
+                filterName: StatusHelper.getPaymentLabel(_selectedFilter),
+                onClearFilter: () => setState(() => _selectedFilter = 'all'),
               );
             }
-
-            // Jika memang belum ada payment
             return EmptyStateWidget.noPayments();
           }
 
@@ -99,67 +81,17 @@ class _TenantPaymentsScreenState extends State<TenantPaymentsScreen> {
           final allMyPayments = paymentProvider.payments
               .where((p) => p.tenantId == tenantId)
               .toList();
-          final pendingCount = allMyPayments.where((p) => p.status == 'pending').length;
-          final paidCount = allMyPayments.where((p) => p.status == 'paid').length;
-          final overdueCount = allMyPayments.where((p) => p.status == 'overdue').length;
+          final pendingCount =
+              allMyPayments.where((p) => p.status == 'pending').length;
+          final paidCount =
+              allMyPayments.where((p) => p.status == 'paid').length;
+          final overdueCount =
+              allMyPayments.where((p) => p.status == 'overdue').length;
 
           return Column(
             children: [
-              // Summary Cards
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSummaryCard('Belum Bayar', pendingCount, Colors.orange),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildSummaryCard('Sudah Bayar', paidCount, Colors.green),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildSummaryCard('Terlambat', overdueCount, Colors.red),
-                        ),
-                      ],
-                    ),
-                    if (_selectedFilter != 'all') ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.filter_list, size: 16, color: Colors.blue[700]),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Filter: ${_getFilterLabel(_selectedFilter)}',
-                              style: TextStyle(
-                                color: Colors.blue[700],
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () {
-                                setState(() => _selectedFilter = 'all');
-                              },
-                              child: Icon(Icons.close, size: 16, color: Colors.blue[700]),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              // Filter Chips
+              _buildFilterChips(pendingCount, paidCount, overdueCount),
 
               // Payment List
               Expanded(
@@ -168,7 +100,7 @@ class _TenantPaymentsScreenState extends State<TenantPaymentsScreen> {
                     await context.read<PaymentProvider>().fetchPayments();
                   },
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(Spacing.md),
                     itemCount: filteredPayments.length,
                     itemBuilder: (context, index) {
                       final payment = filteredPayments[index];
@@ -184,215 +116,185 @@ class _TenantPaymentsScreenState extends State<TenantPaymentsScreen> {
     );
   }
 
-  Widget _buildSummaryCard(String label, int count, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+  Widget _buildFilterChips(int pending, int paid, int overdue) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.md,
+        vertical: Spacing.sm,
       ),
-      child: Column(
+      child: Row(
         children: [
-          Text(
-            '$count',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8)),
-          ),
+          _buildFilterChip('all', 'Semua', null),
+          const SizedBox(width: Spacing.sm),
+          _buildFilterChip('pending', 'Pending', pending),
+          const SizedBox(width: Spacing.sm),
+          _buildFilterChip('paid', 'Lunas', paid),
+          const SizedBox(width: Spacing.sm),
+          _buildFilterChip('overdue', 'Terlambat', overdue),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilterChip(String value, String label, int? count) {
+    final isSelected = _selectedFilter == value;
+
+    return FilterChip(
+      selected: isSelected,
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          if (count != null && count > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? context.onPrimaryColor.withValues(alpha: 0.2)
+                    : context.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? context.onPrimaryColor : context.primaryColor,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      selectedColor: context.primaryColor,
+      checkmarkColor: context.onPrimaryColor,
+      labelStyle: TextStyle(
+        color: isSelected ? context.onPrimaryColor : context.textPrimary,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+      ),
+      onSelected: (selected) {
+        setState(() => _selectedFilter = value);
+      },
     );
   }
 
   Widget _buildPaymentCard(Payment payment) {
     final kostProvider = context.read<KostProvider>();
     final room = kostProvider.getRoomById(payment.roomId);
+    final statusColor = StatusHelper.getPaymentColor(payment.status, context);
+    final statusLabel = StatusHelper.getPaymentLabel(payment.status);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.sm),
+      child: AppCard(
         onTap: () => _showPaymentDetail(payment, room),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(payment.status).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(
+                      alpha: context.isDarkMode ? 0.2 : 0.1,
                     ),
-                    child: Icon(
-                      Icons.payment,
-                      color: _getStatusColor(payment.status),
-                      size: 24,
-                    ),
+                    borderRadius: BorderRadius.circular(Radius.md),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Kamar ${room?.roomNumber ?? payment.roomId}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          NumberFormat.currency(
-                            locale: 'id_ID',
-                            symbol: 'Rp ',
-                            decimalDigits: 0,
-                          ).format(payment.amount),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: Icon(
+                    Icons.receipt_long_rounded,
+                    color: statusColor,
+                    size: 22,
                   ),
-                  _buildStatusBadge(payment.status),
+                ),
+                const SizedBox(width: Spacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Kamar ${room?.roomNumber ?? payment.roomId}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        NumberFormat.currency(
+                          locale: 'id_ID',
+                          symbol: 'Rp ',
+                          decimalDigits: 0,
+                        ).format(payment.amount),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: context.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                StatusBadge(
+                  label: statusLabel,
+                  color: statusColor,
+                ),
+              ],
+            ),
+            const SizedBox(height: Spacing.md),
+            Divider(color: context.dividerColor, height: 1),
+            const SizedBox(height: Spacing.sm),
+            Row(
+              children: [
+                Icon(
+                  Icons.event_rounded,
+                  size: 16,
+                  color: context.textTertiary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Jatuh tempo: ${DateFormat('dd MMM yyyy').format(payment.dueDate)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (payment.status == 'overdue') ...[
+                  const SizedBox(width: Spacing.sm),
+                  StatusBadge(
+                    label: '${_getDaysOverdue(payment.dueDate)} hari',
+                    color: context.errorColor,
+                    small: true,
+                  ),
                 ],
-              ),
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 12),
+              ],
+            ),
+            if (payment.paidDate != null) ...[
+              const SizedBox(height: 6),
               Row(
                 children: [
-                  Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 16,
+                    color: context.successColor,
+                  ),
                   const SizedBox(width: 6),
                   Text(
-                    'Jatuh tempo: ${DateFormat('dd MMM yyyy').format(payment.dueDate)}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                  if (payment.status == 'overdue') ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      '(${_getDaysOverdue(payment.dueDate)} hari)',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    'Dibayar: ${DateFormat('dd MMM yyyy').format(payment.paidDate!)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: context.successColor,
                     ),
-                  ],
+                  ),
                 ],
               ),
-              if (payment.paidDate != null) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Icon(Icons.check_circle, size: 14, color: Colors.green[600]),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Dibayar: ${DateFormat('dd MMM yyyy').format(payment.paidDate!)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.green[600],
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              if (payment.notes != null && payment.notes!.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Icon(Icons.note, size: 14, color: Colors.grey[600]),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        payment.notes!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
             ],
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    Color color;
-    String label;
-
-    switch (status) {
-      case 'pending':
-        color = Colors.orange;
-        label = 'Belum Bayar';
-        break;
-      case 'paid':
-        color = Colors.green;
-        label = 'Lunas';
-        break;
-      case 'overdue':
-        color = Colors.red;
-        label = 'Terlambat';
-        break;
-      default:
-        color = Colors.grey;
-        label = status;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.payment, size: 80, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text('Belum ada tagihan', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
-          const SizedBox(height: 8),
-          Text(
-            'Tagihan akan muncul di sini',
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showPaymentDetail(Payment payment, KostRoom? room) {
+    final statusColor = StatusHelper.getPaymentColor(payment.status, context);
+    final statusLabel = StatusHelper.getPaymentLabel(payment.status);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.6,
         minChildSize: 0.4,
@@ -401,120 +303,137 @@ class _TenantPaymentsScreenState extends State<TenantPaymentsScreen> {
         builder: (context, scrollController) => SingleChildScrollView(
           controller: scrollController,
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(Spacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
+                const BottomSheetHandle(),
+
+                // Header
                 Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(payment.status).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        color: statusColor.withValues(
+                          alpha: context.isDarkMode ? 0.2 : 0.1,
+                        ),
+                        borderRadius: BorderRadius.circular(Radius.md),
                       ),
                       child: Icon(
-                        Icons.payment,
-                        color: _getStatusColor(payment.status),
-                        size: 28,
+                        Icons.receipt_long_rounded,
+                        color: statusColor,
+                        size: 24,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: Spacing.md),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Detail Pembayaran',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            style: Theme.of(context).textTheme.headlineMedium,
                           ),
                           const SizedBox(height: 4),
-                          _buildStatusBadge(payment.status),
+                          StatusBadge(
+                            label: statusLabel,
+                            color: statusColor,
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                _buildDetailRow('Kamar', 'Kamar ${room?.roomNumber ?? payment.roomId}'),
-                _buildDetailRow(
-                  'Jumlah',
-                  NumberFormat.currency(
+                const SizedBox(height: Spacing.lg),
+                Divider(color: context.dividerColor),
+                const SizedBox(height: Spacing.sm),
+
+                // Details
+                InfoRow(
+                  label: 'Kamar',
+                  value: 'Kamar ${room?.roomNumber ?? payment.roomId}',
+                  icon: Icons.meeting_room_rounded,
+                ),
+                InfoRow(
+                  label: 'Jumlah',
+                  value: NumberFormat.currency(
                     locale: 'id_ID',
                     symbol: 'Rp ',
                     decimalDigits: 0,
                   ).format(payment.amount),
+                  icon: Icons.payments_rounded,
+                  valueColor: context.primaryColor,
                 ),
-                _buildDetailRow(
-                  'Tanggal Jatuh Tempo',
-                  DateFormat('dd MMMM yyyy').format(payment.dueDate),
+                InfoRow(
+                  label: 'Jatuh Tempo',
+                  value: DateFormat('dd MMMM yyyy').format(payment.dueDate),
+                  icon: Icons.event_rounded,
                 ),
                 if (payment.paidDate != null)
-                  _buildDetailRow(
-                    'Tanggal Bayar',
-                    DateFormat('dd MMMM yyyy').format(payment.paidDate!),
+                  InfoRow(
+                    label: 'Tanggal Bayar',
+                    value: DateFormat('dd MMMM yyyy').format(payment.paidDate!),
+                    icon: Icons.check_circle_rounded,
+                    valueColor: context.successColor,
                   ),
                 if (payment.status == 'overdue')
-                  _buildDetailRow(
-                    'Keterlambatan',
-                    '${_getDaysOverdue(payment.dueDate)} hari',
-                    valueColor: Colors.red,
+                  InfoRow(
+                    label: 'Keterlambatan',
+                    value: '${_getDaysOverdue(payment.dueDate)} hari',
+                    icon: Icons.warning_rounded,
+                    valueColor: context.errorColor,
                   ),
+
                 if (payment.notes != null && payment.notes!.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Text(
+                  const SizedBox(height: Spacing.md),
+                  Text(
                     'Catatan',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 8),
-                  Text(payment.notes!, style: const TextStyle(fontSize: 14)),
-                ],
-                if (payment.status == 'pending' || payment.status == 'overdue') ...[
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                  const SizedBox(height: Spacing.xs),
+                  Text(
+                    payment.notes!,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: context.textSecondary,
                     ),
-                    child: Column(
+                  ),
+                ],
+
+                // Info box for pending
+                if (payment.status == 'pending' || payment.status == 'overdue') ...[
+                  const SizedBox(height: Spacing.lg),
+                  Container(
+                    padding: const EdgeInsets.all(Spacing.md),
+                    decoration: BoxDecoration(
+                      color: context.infoLightColor,
+                      borderRadius: BorderRadius.circular(Radius.md),
+                      border: Border.all(
+                        color: context.infoColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Informasi Pembayaran',
-                              style: TextStyle(
-                                color: Colors.blue[700],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
+                        Icon(
+                          Icons.info_rounded,
+                          color: context.infoColor,
+                          size: 20,
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Silakan hubungi pemilik kost untuk melakukan pembayaran atau upload bukti transfer.',
-                          style: TextStyle(color: Colors.blue[900], fontSize: 13),
+                        const SizedBox(width: Spacing.sm),
+                        Expanded(
+                          child: Text(
+                            'Silakan hubungi pemilik kost untuk melakukan pembayaran.',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: context.infoColor,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
+                const SizedBox(height: Spacing.lg),
               ],
             ),
           ),
@@ -523,58 +442,7 @@ class _TenantPaymentsScreenState extends State<TenantPaymentsScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: valueColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return Colors.orange;
-      case 'paid':
-        return Colors.green;
-      case 'overdue':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getFilterLabel(String filter) {
-    switch (filter) {
-      case 'pending':
-        return 'Belum Bayar';
-      case 'paid':
-        return 'Sudah Bayar';
-      case 'overdue':
-        return 'Terlambat';
-      default:
-        return 'Semua';
-    }
-  }
-
   int _getDaysOverdue(DateTime dueDate) {
-    final now = DateTime.now();
-    final difference = now.difference(dueDate);
-    return difference.inDays;
+    return DateTime.now().difference(dueDate).inDays;
   }
 }

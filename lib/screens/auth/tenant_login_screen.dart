@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:ui';
 import '../../providers/tenant_auth_provider.dart';
 import '../tenant_portal/tenant_home_screen.dart';
 import '../../utils/page_transitions.dart';
 import '../splash_screen.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/design_system.dart';
 
 class TenantLoginScreen extends StatefulWidget {
   const TenantLoginScreen({super.key});
@@ -16,13 +17,13 @@ class TenantLoginScreen extends StatefulWidget {
 class _TenantLoginScreenState extends State<TenantLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _roomCodeController = TextEditingController();
-  final _pinCodeController = TextEditingController();
-  bool _isPinVisible = false;
+  final _accessCodeController = TextEditingController();
+  bool _isAccessCodeVisible = false;
 
   @override
   void dispose() {
     _roomCodeController.dispose();
-    _pinCodeController.dispose();
+    _accessCodeController.dispose();
     super.dispose();
   }
 
@@ -30,29 +31,24 @@ class _TenantLoginScreenState extends State<TenantLoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final tenantAuthProvider = context.read<TenantAuthProvider>();
-    
+
     final success = await tenantAuthProvider.loginWithRoomCode(
-      roomCode: _roomCodeController.text.trim(),
-      pinCode: _pinCodeController.text.trim(),
+      roomCode: _roomCodeController.text.trim().toUpperCase(),
+      pinCode: _accessCodeController.text.trim(),
     );
 
     if (!mounted) return;
 
     if (success) {
-      // Login berhasil, navigate ke tenant home
-      AppNavigator.replaceWith(
+      AppNavigator.pushAndRemoveAll(
         context,
         const TenantHomeScreen(),
-        useSlide: false, // Use fade untuk login → dashboard
       );
     } else {
-      // Show error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            tenantAuthProvider.errorMessage ?? 'Login gagal',
-          ),
-          backgroundColor: Colors.red,
+          content: Text(tenantAuthProvider.errorMessage ?? 'Login gagal'),
+          backgroundColor: context.errorColor,
         ),
       );
     }
@@ -60,454 +56,248 @@ class _TenantLoginScreenState extends State<TenantLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (Navigator.of(context).canPop()) return true;
-        // If this is the only route, replace it with SplashScreen instead of popping to avoid a black screen
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const SplashScreen()),
-        );
-        return false;
+    return PopScope(
+      canPop: Navigator.of(context).canPop(),
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const SplashScreen()),
+          );
+        }
       },
       child: Scaffold(
-        body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/login_background.jpg',
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                // Fallback gradient untuk tenant (Green theme)
-                return Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF4CAF50),
-                        Color(0xFF388E3C),
-                        Color(0xFF2E7D32),
-                      ],
+        backgroundColor: context.backgroundColor,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(Spacing.lg),
+              child: Column(
+                children: [
+                  // Back Button
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: IconButton(
+                      onPressed: () {
+                        final nav = Navigator.of(context);
+                        if (nav.canPop()) {
+                          nav.pop();
+                        } else {
+                          nav.pushReplacement(
+                            MaterialPageRoute(builder: (_) => const SplashScreen()),
+                          );
+                        }
+                      },
+                      icon: Icon(
+                        Icons.arrow_back_rounded,
+                        color: context.textPrimary,
+                      ),
                     ),
+                  ),
+
+                  const SizedBox(height: Spacing.xl),
+
+                  // Logo Section
+                  _buildLogoSection(),
+
+                  const SizedBox(height: Spacing.xxl),
+
+                  // Login Form
+                  _buildLoginForm(),
+
+                  const SizedBox(height: Spacing.lg),
+
+                  // Info Card
+                  _buildInfoCard(),
+
+                  const SizedBox(height: Spacing.xl),
+
+                  // Footer
+                  Text(
+                    '© 2025 JagaKost',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoSection() {
+    return Column(
+      children: [
+        // Logo Icon
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            color: context.secondaryColor,
+            borderRadius: BorderRadius.circular(Radius.xl),
+          ),
+          child: const Icon(
+            Icons.person_rounded,
+            size: 40,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: Spacing.md),
+
+        // App Name
+        Text(
+          'JagaKost',
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+            color: context.primaryColor,
+          ),
+        ),
+        const SizedBox(height: Spacing.xs),
+
+        // Subtitle
+        Text(
+          'Portal Penyewa',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: context.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoginForm() {
+    return AppCard(
+      padding: const EdgeInsets.all(Spacing.lg),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Title
+            Text(
+              'Masuk',
+              style: Theme.of(context).textTheme.headlineMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: Spacing.xs),
+            Text(
+              'Masukkan kode kamar dan akses Anda',
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: Spacing.lg),
+
+            // Room Code Field
+            TextFormField(
+              controller: _roomCodeController,
+              textCapitalization: TextCapitalization.characters,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Kode Kamar',
+                hintText: 'Contoh: A101',
+                prefixIcon: Icon(Icons.meeting_room_outlined),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Kode kamar tidak boleh kosong';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: Spacing.md),
+
+            // Access Code Field
+            TextFormField(
+              controller: _accessCodeController,
+              obscureText: !_isAccessCodeVisible,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _handleLogin(),
+              decoration: InputDecoration(
+                labelText: 'Kode Akses',
+                hintText: '••••••',
+                prefixIcon: const Icon(Icons.key_outlined),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isAccessCodeVisible
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isAccessCodeVisible = !_isAccessCodeVisible;
+                    });
+                  },
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Kode akses tidak boleh kosong';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: Spacing.lg),
+
+            // Login Button
+            Consumer<TenantAuthProvider>(
+              builder: (context, tenantAuthProvider, _) {
+                return SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: tenantAuthProvider.isLoading ? null : _handleLogin,
+                    child: tenantAuthProvider.isLoading
+                        ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: context.onPrimaryColor,
+                            ),
+                          )
+                        : const Text('Masuk'),
                   ),
                 );
               },
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          // Dark Overlay
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.4),
-                    Colors.black.withOpacity(0.7),
-                  ],
-                ),
-              ),
-            ),
+  Widget _buildInfoCard() {
+    return Container(
+      padding: const EdgeInsets.all(Spacing.md),
+      decoration: BoxDecoration(
+        color: context.infoLightColor,
+        borderRadius: BorderRadius.circular(Radius.md),
+        border: Border.all(
+          color: context.infoColor.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            color: context.infoColor,
+            size: 20,
           ),
-
-          // Content
-          SafeArea(
+          const SizedBox(width: Spacing.sm),
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Back Button with Glass Effect
-                Align(
-                  alignment: Alignment.topLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        onPressed: () {
-                          final nav = Navigator.of(context);
-                          if (nav.canPop()) {
-                            nav.pop();
-                          } else {
-                            // Replace with SplashScreen to avoid leaving an empty navigator
-                            nav.pushReplacement(
-                              MaterialPageRoute(builder: (_) => const SplashScreen()),
-                            );
-                          }
-                        },
-                      ),
-                    ),
+                Text(
+                  'Belum punya kode akses?',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: context.infoColor,
                   ),
                 ),
-
-                // Main Content
-                Expanded(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Logo with Glass Effect
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.2),
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                // Logo Icon
-                                Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 20,
-                                        offset: const Offset(0, 10),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.home_work_rounded,
-                                    size: 40,
-                                    color: Color(0xFF4CAF50),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Title
-                                const Text(
-                                  'Portal Penyewa',
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-
-                                // Subtitle
-                                Text(
-                                  'Masuk dengan kode kamar dan PIN Anda',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.white.withOpacity(0.9),
-                                    letterSpacing: 0.5,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 40),
-
-                          // Login Form with Glassmorphism
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: Container(
-                                padding: const EdgeInsets.all(24),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.2),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Form(
-                                  key: _formKey,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      // Room Code Field
-                                      TextFormField(
-                                        controller: _roomCodeController,
-                                        style: const TextStyle(color: Colors.white),
-                                        textCapitalization: TextCapitalization.characters,
-                                        decoration: InputDecoration(
-                                          labelText: 'Kode Kamar',
-                                          labelStyle: TextStyle(
-                                            color: Colors.white.withOpacity(0.8),
-                                          ),
-                                          hintText: 'Contoh: A101, 102, B201',
-                                          hintStyle: TextStyle(
-                                            color: Colors.white.withOpacity(0.4),
-                                          ),
-                                          prefixIcon: Icon(
-                                            Icons.meeting_room,
-                                            color: Colors.white.withOpacity(0.8),
-                                          ),
-                                          filled: true,
-                                          fillColor: Colors.white.withOpacity(0.1),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            borderSide: BorderSide(
-                                              color: Colors.white.withOpacity(0.3),
-                                            ),
-                                          ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            borderSide: BorderSide(
-                                              color: Colors.white.withOpacity(0.3),
-                                            ),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            borderSide: const BorderSide(
-                                              color: Colors.white,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          errorStyle: const TextStyle(
-                                            color: Colors.yellowAccent,
-                                          ),
-                                        ),
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return 'Kode kamar tidak boleh kosong';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-
-                                      const SizedBox(height: 16),
-
-                                      // PIN Field
-                                      TextFormField(
-                                        controller: _pinCodeController,
-                                        obscureText: !_isPinVisible,
-                                        style: const TextStyle(color: Colors.white),
-                                        keyboardType: TextInputType.number,
-                                        maxLength: 4,
-                                        decoration: InputDecoration(
-                                          labelText: 'PIN',
-                                          labelStyle: TextStyle(
-                                            color: Colors.white.withOpacity(0.8),
-                                          ),
-                                          hintText: '4 digit PIN',
-                                          hintStyle: TextStyle(
-                                            color: Colors.white.withOpacity(0.4),
-                                          ),
-                                          prefixIcon: Icon(
-                                            Icons.lock_outline,
-                                            color: Colors.white.withOpacity(0.8),
-                                          ),
-                                          suffixIcon: IconButton(
-                                            icon: Icon(
-                                              _isPinVisible
-                                                  ? Icons.visibility_off
-                                                  : Icons.visibility,
-                                              color: Colors.white.withOpacity(0.8),
-                                            ),
-                                            onPressed: () {
-                                              setState(() {
-                                                _isPinVisible = !_isPinVisible;
-                                              });
-                                            },
-                                          ),
-                                          filled: true,
-                                          fillColor: Colors.white.withOpacity(0.1),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            borderSide: BorderSide(
-                                              color: Colors.white.withOpacity(0.3),
-                                            ),
-                                          ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            borderSide: BorderSide(
-                                              color: Colors.white.withOpacity(0.3),
-                                            ),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            borderSide: const BorderSide(
-                                              color: Colors.white,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          errorStyle: const TextStyle(
-                                            color: Colors.yellowAccent,
-                                          ),
-                                          counterText: '',
-                                        ),
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return 'PIN tidak boleh kosong';
-                                          }
-                                          if (value.length != 4) {
-                                            return 'PIN harus 4 digit';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-
-                                      const SizedBox(height: 24),
-
-                                      // Login Button
-                                      Consumer<TenantAuthProvider>(
-                                        builder: (context, tenantAuthProvider, _) {
-                                          return ElevatedButton(
-                                            onPressed: tenantAuthProvider.isLoading 
-                                                ? null 
-                                                : _handleLogin,
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.white,
-                                              foregroundColor: const Color(0xFF4CAF50),
-                                              padding: const EdgeInsets.symmetric(vertical: 16),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              elevation: 8,
-                                              shadowColor: Colors.black.withOpacity(0.3),
-                                            ),
-                                            child: tenantAuthProvider.isLoading
-                                                ? const SizedBox(
-                                                    height: 20,
-                                                    width: 20,
-                                                    child: CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                                        Color(0xFF4CAF50),
-                                                      ),
-                                                    ),
-                                                  )
-                                                : const Text(
-                                                    'Masuk',
-                                                    style: TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight: FontWeight.bold,
-                                                      letterSpacing: 0.5,
-                                                    ),
-                                                  ),
-                                          );
-                                        },
-                                      ),
-
-                                      const SizedBox(height: 16),
-
-                                      // Info Box
-                                      Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue.withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: Colors.blue.withOpacity(0.3),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Icon(
-                                              Icons.info_outline,
-                                              color: Colors.white.withOpacity(0.9),
-                                              size: 20,
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'Informasi Login',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    '• Kode kamar dan PIN diberikan oleh pemilik kost saat Anda check-in',
-                                                    style: TextStyle(
-                                                      color: Colors.white.withOpacity(0.9),
-                                                      fontSize: 11,
-                                                      height: 1.4,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    '• Jika lupa PIN, silakan hubungi pemilik kost',
-                                                    style: TextStyle(
-                                                      color: Colors.white.withOpacity(0.9),
-                                                      fontSize: 11,
-                                                      height: 1.4,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Help Button
-                          TextButton.icon(
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Butuh Bantuan?'),
-                                  content: const Text(
-                                    'Hubungi pemilik kost Anda untuk mendapatkan:\n\n'
-                                    '1. Kode Kamar (contoh: A101, 102)\n'
-                                    '2. PIN 4 digit\n\n'
-                                    'Credentials ini diberikan saat Anda check-in ke kamar.',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('Mengerti'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                            icon: Icon(
-                              Icons.help_outline,
-                              color: Colors.white.withOpacity(0.8),
-                              size: 20,
-                            ),
-                            label: Text(
-                              'Butuh Bantuan?',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                const SizedBox(height: 4),
+                Text(
+                  'Hubungi pemilik kost untuk mendapatkan kode kamar dan kode akses Anda.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: context.infoColor.withValues(alpha: 0.8),
                   ),
                 ),
               ],
@@ -515,7 +305,6 @@ class _TenantLoginScreenState extends State<TenantLoginScreen> {
           ),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
 }

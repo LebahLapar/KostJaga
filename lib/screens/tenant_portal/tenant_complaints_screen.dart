@@ -4,11 +4,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../providers/complaint_provider.dart';
 import '../../providers/tenant_auth_provider.dart';
-import '../../providers/tenant_provider.dart';
 import '../../models/models.dart';
 import '../../utils/toast_helper.dart';
 import '../../utils/shimmer_loading.dart';
-import '../../utils/empty_state_widget.dart'; // ADD THIS
+import '../../utils/empty_state_widget.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/design_system.dart';
 
 class TenantComplaintsScreen extends StatefulWidget {
   const TenantComplaintsScreen({super.key});
@@ -35,20 +36,6 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Keluhan Saya'),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.filter_list),
-            onSelected: (value) {
-              setState(() => _filterStatus = value);
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'all', child: Text('Semua')),
-              const PopupMenuItem(value: 'pending', child: Text('Pending')),
-              const PopupMenuItem(value: 'in_progress', child: Text('Diproses')),
-              const PopupMenuItem(value: 'resolved', child: Text('Selesai')),
-            ],
-          ),
-        ],
       ),
       body: Consumer2<ComplaintProvider, TenantAuthProvider>(
         builder: (context, complaintProvider, tenantAuthProvider, child) {
@@ -64,17 +51,16 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
             return const Center(child: Text('User tidak ditemukan'));
           }
 
-          // Filter complaints untuk tenant ini saja
+          // Filter complaints
           var complaints = complaintProvider.complaints
               .where((c) => c.tenantId == tenantId)
               .toList();
 
-          // Apply status filter
           if (_filterStatus != 'all') {
-            complaints = complaints.where((c) => c.status == _filterStatus).toList();
+            complaints =
+                complaints.where((c) => c.status == _filterStatus).toList();
           }
 
-          // UPDATED: Better empty state logic
           if (complaints.isEmpty) {
             return RefreshIndicator(
               onRefresh: _loadData,
@@ -93,72 +79,24 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
           final allMyComplaints = complaintProvider.complaints
               .where((c) => c.tenantId == tenantId)
               .toList();
-          final pendingCount = allMyComplaints.where((c) => c.status == 'pending').length;
-          final inProgressCount = allMyComplaints.where((c) => c.status == 'in_progress').length;
-          final resolvedCount = allMyComplaints.where((c) => c.status == 'resolved').length;
+          final pendingCount =
+              allMyComplaints.where((c) => c.status == 'pending').length;
+          final inProgressCount =
+              allMyComplaints.where((c) => c.status == 'in_progress').length;
+          final resolvedCount =
+              allMyComplaints.where((c) => c.status == 'resolved').length;
 
           return Column(
             children: [
-              // Summary Cards
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSummaryCard('Pending', pendingCount, Colors.orange),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildSummaryCard('Proses', inProgressCount, Colors.blue),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildSummaryCard('Selesai', resolvedCount, Colors.green),
-                        ),
-                      ],
-                    ),
-                    if (_filterStatus != 'all') ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.filter_list, size: 16, color: Colors.blue[700]),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Filter: ${_getStatusLabel(_filterStatus)}',
-                              style: TextStyle(
-                                color: Colors.blue[700],
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () => setState(() => _filterStatus = 'all'),
-                              child: Icon(Icons.close, size: 16, color: Colors.blue[700]),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              // Filter Chips
+              _buildFilterChips(pendingCount, inProgressCount, resolvedCount),
 
               // Complaints List
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: _loadData,
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(Spacing.md),
                     itemCount: complaints.length,
                     itemBuilder: (context, index) {
                       return _buildComplaintCard(complaints[index]);
@@ -172,205 +110,203 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddComplaintDialog,
-        icon: const Icon(Icons.add),
+        icon: const Icon(Icons.add_rounded),
         label: const Text('Buat Keluhan'),
       ),
     );
   }
 
-  Widget _buildSummaryCard(String label, int count, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+  Widget _buildFilterChips(int pending, int inProgress, int resolved) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.md,
+        vertical: Spacing.sm,
       ),
-      child: Column(
+      child: Row(
         children: [
-          Text(
-            '$count',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.8)),
-          ),
+          _buildFilterChip('all', 'Semua', null),
+          const SizedBox(width: Spacing.sm),
+          _buildFilterChip('pending', 'Pending', pending),
+          const SizedBox(width: Spacing.sm),
+          _buildFilterChip('in_progress', 'Diproses', inProgress),
+          const SizedBox(width: Spacing.sm),
+          _buildFilterChip('resolved', 'Selesai', resolved),
         ],
       ),
     );
   }
 
+  Widget _buildFilterChip(String value, String label, int? count) {
+    final isSelected = _filterStatus == value;
+
+    return FilterChip(
+      selected: isSelected,
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          if (count != null && count > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? context.onPrimaryColor.withValues(alpha: 0.2)
+                    : context.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? context.onPrimaryColor : context.primaryColor,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      selectedColor: context.primaryColor,
+      checkmarkColor: context.onPrimaryColor,
+      labelStyle: TextStyle(
+        color: isSelected ? context.onPrimaryColor : context.textPrimary,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+      ),
+      onSelected: (selected) {
+        setState(() => _filterStatus = value);
+      },
+    );
+  }
+
   Widget _buildComplaintCard(Complaint complaint) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
+    final categoryColor = CategoryHelper.getColor(complaint.category);
+    final categoryIcon = CategoryHelper.getIcon(complaint.category);
+    final categoryLabel = CategoryHelper.getLabel(complaint.category);
+    final statusColor = StatusHelper.getComplaintColor(complaint.status, context);
+    final statusLabel = StatusHelper.getComplaintLabel(complaint.status);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.sm),
+      child: AppCard(
         onTap: () => _showComplaintDetail(complaint),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _buildCategoryIcon(complaint.category),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          complaint.title,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _getCategoryLabel(complaint.category),
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                        ),
-                      ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: categoryColor.withValues(
+                      alpha: context.isDarkMode ? 0.2 : 0.1,
                     ),
+                    borderRadius: BorderRadius.circular(Radius.md),
                   ),
-                  _buildStatusBadge(complaint.status),
-                ],
+                  child: Icon(categoryIcon, color: categoryColor, size: 22),
+                ),
+                const SizedBox(width: Spacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        complaint.title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        categoryLabel,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                StatusBadge(
+                  label: statusLabel,
+                  color: statusColor,
+                ),
+              ],
+            ),
+            const SizedBox(height: Spacing.sm),
+            Text(
+              complaint.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: context.textSecondary,
               ),
-              const SizedBox(height: 12),
-              Text(
-                complaint.description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: Spacing.md),
+            Divider(color: context.dividerColor, height: 1),
+            const SizedBox(height: Spacing.sm),
+            Row(
+              children: [
+                Icon(
+                  Icons.access_time_rounded,
+                  size: 16,
+                  color: context.textTertiary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _formatDate(complaint.createdAt),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (complaint.imageUrl != null) ...[
+                  const SizedBox(width: Spacing.md),
+                  Icon(
+                    Icons.image_rounded,
+                    size: 16,
+                    color: context.primaryColor,
+                  ),
                   const SizedBox(width: 4),
                   Text(
-                    _formatDate(complaint.createdAt),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    'Foto',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: context.primaryColor,
+                    ),
                   ),
-                  if (complaint.imageUrl != null) ...[
-                    const SizedBox(width: 12),
-                    Icon(Icons.image, size: 14, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text('Ada foto', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                  ],
                 ],
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildCategoryIcon(String category) {
-    IconData icon;
-    Color color;
-
-    switch (category) {
-      case 'maintenance':
-        icon = Icons.build;
-        color = Colors.orange;
-        break;
-      case 'cleanliness':
-        icon = Icons.cleaning_services;
-        color = Colors.blue;
-        break;
-      case 'facility':
-        icon = Icons.chair;
-        color = Colors.purple;
-        break;
-      default:
-        icon = Icons.report_problem;
-        color = Colors.red;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, color: color, size: 24),
-    );
-  }
-
-  Widget _buildStatusBadge(String status) {
-    Color color;
-    String label;
-
-    switch (status) {
-      case 'pending':
-        color = Colors.orange;
-        label = 'Pending';
-        break;
-      case 'in_progress':
-        color = Colors.blue;
-        label = 'Proses';
-        break;
-      case 'resolved':
-        color = Colors.green;
-        label = 'Selesai';
-        break;
-      default:
-        color = Colors.grey;
-        label = status;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  // UPDATED: Better empty state with proper logic
   Widget _buildEmptyState() {
-    // Get all complaints untuk tenant ini (tanpa filter)
     final complaintProvider = context.read<ComplaintProvider>();
     final tenantAuthProvider = context.read<TenantAuthProvider>();
     final tenantId = tenantAuthProvider.tenantId;
-    
+
     final allMyComplaints = complaintProvider.complaints
         .where((c) => c.tenantId == tenantId)
         .toList();
 
-    // Jika ada filter aktif dan hasil kosong
     if (_filterStatus != 'all' && allMyComplaints.isNotEmpty) {
       return EmptyStateWidget.noFilterResults(
-        filterName: _getStatusLabel(_filterStatus),
-        onClearFilter: () {
-          setState(() => _filterStatus = 'all');
-        },
+        filterName: StatusHelper.getComplaintLabel(_filterStatus),
+        onClearFilter: () => setState(() => _filterStatus = 'all'),
       );
     }
 
-    // Jika memang belum ada keluhan sama sekali
     return EmptyStateWidget.noComplaints(
       onCreateComplaint: _showAddComplaintDialog,
     );
   }
 
   void _showComplaintDetail(Complaint complaint) {
+    final categoryColor = CategoryHelper.getColor(complaint.category);
+    final categoryIcon = CategoryHelper.getIcon(complaint.category);
+    final categoryLabel = CategoryHelper.getLabel(complaint.category);
+    final statusColor = StatusHelper.getComplaintColor(complaint.status, context);
+    final statusLabel = StatusHelper.getComplaintLabel(complaint.status);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.7,
         minChildSize: 0.5,
@@ -379,49 +315,81 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
         builder: (context, scrollController) => SingleChildScrollView(
           controller: scrollController,
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(Spacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
+                const BottomSheetHandle(),
+
+                // Header
                 Row(
                   children: [
-                    _buildCategoryIcon(complaint.category),
-                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: categoryColor.withValues(
+                          alpha: context.isDarkMode ? 0.2 : 0.1,
+                        ),
+                        borderRadius: BorderRadius.circular(Radius.md),
+                      ),
+                      child: Icon(categoryIcon, color: categoryColor, size: 24),
+                    ),
+                    const SizedBox(width: Spacing.md),
                     Expanded(
-                      child: Text(
-                        complaint.title,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            complaint.title,
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              StatusBadge(
+                                label: statusLabel,
+                                color: statusColor,
+                                small: true,
+                              ),
+                              const SizedBox(width: Spacing.sm),
+                              StatusBadge(
+                                label: categoryLabel,
+                                color: categoryColor,
+                                small: true,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    _buildStatusBadge(complaint.status),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: Spacing.lg),
+
+                // Description
                 Text(
-                  _getCategoryLabel(complaint.category),
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  'Deskripsi',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(height: 24),
-                const Text('Deskripsi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text(complaint.description, style: const TextStyle(fontSize: 14, height: 1.5)),
+                const SizedBox(height: Spacing.xs),
+                Text(
+                  complaint.description,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: context.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+
+                // Image
                 if (complaint.imageUrl != null) ...[
-                  const SizedBox(height: 24),
-                  const Text('Foto Bukti', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Spacing.lg),
+                  Text(
+                    'Foto',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: Spacing.sm),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(Radius.md),
                     child: Image.network(
                       complaint.imageUrl!,
                       width: double.infinity,
@@ -430,15 +398,32 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           height: 200,
-                          color: Colors.grey[200],
-                          child: const Center(child: Icon(Icons.broken_image, size: 50)),
+                          decoration: BoxDecoration(
+                            color: context.surfaceVariant,
+                            borderRadius: BorderRadius.circular(Radius.md),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.broken_image_rounded,
+                              size: 50,
+                              color: context.textTertiary,
+                            ),
+                          ),
                         );
                       },
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
+
+                // Timeline
+                const SizedBox(height: Spacing.lg),
+                Text(
+                  'Timeline',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: Spacing.md),
                 _buildTimeline(complaint),
+                const SizedBox(height: Spacing.lg),
               ],
             ),
           ),
@@ -449,27 +434,26 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
 
   Widget _buildTimeline(Complaint complaint) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Timeline', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
         _buildTimelineItem(
           'Keluhan dibuat',
           _formatDate(complaint.createdAt),
-          Colors.blue,
+          context.infoColor,
           isFirst: true,
+          isLast: complaint.status == 'pending',
         ),
-        if (complaint.status == 'in_progress')
+        if (complaint.status == 'in_progress' || complaint.status == 'resolved')
           _buildTimelineItem(
             'Sedang diproses',
-            'Tim sedang menangani keluhan Anda',
-            Colors.orange,
+            'Tim sedang menangani',
+            context.warningColor,
+            isLast: complaint.status == 'in_progress',
           ),
         if (complaint.status == 'resolved' && complaint.resolvedAt != null)
           _buildTimelineItem(
-            'Keluhan selesai',
+            'Selesai',
             _formatDate(complaint.resolvedAt!),
-            Colors.green,
+            context.successColor,
             isLast: true,
           ),
       ],
@@ -489,23 +473,39 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
         Column(
           children: [
             Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
             ),
             if (!isLast)
-              Container(width: 2, height: 40, color: Colors.grey[300]),
+              Container(
+                width: 2,
+                height: 36,
+                color: context.dividerColor,
+              ),
           ],
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: Spacing.md),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              const SizedBox(height: 16),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -521,42 +521,48 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (modalContext) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 24,
-            right: 24,
-            top: 24,
+            left: Spacing.lg,
+            right: Spacing.lg,
+            top: Spacing.lg,
           ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Buat Keluhan Baru',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                const BottomSheetHandle(),
+                Text(
+                  'Buat Keluhan',
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: Spacing.xs),
+                Text(
+                  'Sampaikan keluhan Anda',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: Spacing.lg),
+
+                // Title
                 TextField(
                   controller: titleController,
                   decoration: const InputDecoration(
-                    labelText: 'Judul Keluhan',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.title),
+                    labelText: 'Judul',
+                    hintText: 'Contoh: AC tidak dingin',
+                    prefixIcon: Icon(Icons.title_rounded),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Spacing.md),
+
+                // Category
                 DropdownButtonFormField<String>(
                   value: selectedCategory,
                   decoration: const InputDecoration(
                     labelText: 'Kategori',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.category),
+                    prefixIcon: Icon(Icons.category_rounded),
                   ),
                   items: const [
                     DropdownMenuItem(value: 'maintenance', child: Text('Perbaikan')),
@@ -568,40 +574,66 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
                     setModalState(() => selectedCategory = value!);
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Spacing.md),
+
+                // Description
                 TextField(
                   controller: descriptionController,
                   maxLines: 4,
                   decoration: const InputDecoration(
                     labelText: 'Deskripsi',
-                    border: OutlineInputBorder(),
+                    hintText: 'Jelaskan keluhan Anda...',
                     alignLabelWithHint: true,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Spacing.md),
+
+                // Image
                 OutlinedButton.icon(
                   onPressed: () async {
                     final ImagePicker picker = ImagePicker();
-                    final XFile? image = await picker.pickImage(source: ImageSource.camera);
+                    final XFile? image =
+                        await picker.pickImage(source: ImageSource.camera);
                     if (image != null) {
                       setModalState(() => imagePath = image.path);
                     }
                   },
-                  icon: const Icon(Icons.camera_alt),
-                  label: Text(imagePath == null ? 'Ambil Foto (Opsional)' : 'Foto terlampir'),
+                  icon: Icon(
+                    imagePath != null
+                        ? Icons.check_circle_rounded
+                        : Icons.camera_alt_rounded,
+                  ),
+                  label: Text(
+                    imagePath != null ? 'Foto terlampir' : 'Ambil Foto (Opsional)',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: imagePath != null
+                        ? context.successColor
+                        : context.primaryColor,
+                    side: BorderSide(
+                      color: imagePath != null
+                          ? context.successColor
+                          : context.primaryColor,
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: Spacing.lg),
+
+                // Submit
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () async {
-                      if (titleController.text.isEmpty || descriptionController.text.isEmpty) {
-                        ToastHelper.error('❌ Harap isi semua field!');
+                      if (titleController.text.isEmpty ||
+                          descriptionController.text.isEmpty) {
+                        ToastHelper.error('Harap isi semua field');
                         return;
                       }
 
-                      final tenantAuthProvider = context.read<TenantAuthProvider>();
-                      final complaintProvider = context.read<ComplaintProvider>();
+                      final tenantAuthProvider =
+                          context.read<TenantAuthProvider>();
+                      final complaintProvider =
+                          context.read<ComplaintProvider>();
 
                       final success = await tenantAuthProvider.submitComplaint(
                         title: titleController.text,
@@ -613,23 +645,20 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
                       if (context.mounted) {
                         Navigator.pop(modalContext);
                         if (success) {
-                          ToastHelper.success('✅ Keluhan berhasil dibuat!');
-                          
+                          ToastHelper.success('Keluhan berhasil dibuat');
                           await complaintProvider.fetchComplaints();
                         } else {
                           ToastHelper.error(
-                            tenantAuthProvider.errorMessage ?? 'Gagal membuat keluhan',
+                            tenantAuthProvider.errorMessage ??
+                                'Gagal membuat keluhan',
                           );
                         }
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
                     child: const Text('Kirim Keluhan'),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Spacing.lg),
               ],
             ),
           ),
@@ -638,45 +667,17 @@ class _TenantComplaintsScreenState extends State<TenantComplaintsScreen> {
     );
   }
 
-  String _getCategoryLabel(String category) {
-    switch (category) {
-      case 'maintenance':
-        return 'Perbaikan';
-      case 'cleanliness':
-        return 'Kebersihan';
-      case 'facility':
-        return 'Fasilitas';
-      case 'other':
-        return 'Lainnya';
-      default:
-        return category;
-    }
-  }
-
-  String _getStatusLabel(String status) {
-    switch (status) {
-      case 'pending':
-        return 'Pending';
-      case 'in_progress':
-        return 'Diproses';
-      case 'resolved':
-        return 'Selesai';
-      default:
-        return status;
-    }
-  }
-
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
 
     if (diff.inDays == 0) {
       if (diff.inHours == 0) {
-        return '${diff.inMinutes} menit yang lalu';
+        return '${diff.inMinutes} menit lalu';
       }
-      return '${diff.inHours} jam yang lalu';
+      return '${diff.inHours} jam lalu';
     } else if (diff.inDays < 7) {
-      return '${diff.inDays} hari yang lalu';
+      return '${diff.inDays} hari lalu';
     } else {
       return DateFormat('dd/MM/yyyy').format(date);
     }
